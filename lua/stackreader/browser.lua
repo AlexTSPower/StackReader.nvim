@@ -34,6 +34,7 @@ function M.toggle()
   windows[dirpath] = win
 
   local buf = vim.api.nvim_create_buf(false, true)
+  vim.bo[buf].bufhidden = "wipe"
   vim.api.nvim_win_set_buf(win, buf)
 
   -- No --watch: browser mode, user navigates within StackReader.

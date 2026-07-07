@@ -41,6 +41,7 @@ function M.toggle()
   windows[filepath] = preview_win
 
   local buf = vim.api.nvim_create_buf(false, true)
+  vim.bo[buf].bufhidden = "wipe"
   vim.api.nvim_win_set_buf(preview_win, buf)
 
   vim.fn.termopen({ binary, "--watch", filepath }, {
