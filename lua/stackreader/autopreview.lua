@@ -35,6 +35,8 @@ local function enter_edit(file_buf)
   local s = state[file_buf]
   if not s then return end
 
+  s.no_float = true  -- prevent WinEnter from recreating float while editing
+
   if s.float_win and vim.api.nvim_win_is_valid(s.float_win) then
     vim.api.nvim_win_close(s.float_win, true)
     s.float_win = nil
@@ -43,19 +45,24 @@ local function enter_edit(file_buf)
   vim.api.nvim_set_current_win(s.main_win)
   vim.cmd("startinsert")
 
+  local function restore()
+    s.no_float = false
+    create_float(file_buf)
+  end
+
   vim.keymap.set("i", "<Esc>", function()
     vim.cmd("stopinsert")
     vim.cmd("silent! w")
-    create_float(file_buf)
+    restore()
   end, { buffer = file_buf, desc = "StackReader: save and return to preview" })
 
   vim.keymap.set("n", "ZZ", function()
     vim.cmd("silent! w")
-    create_float(file_buf)
+    restore()
   end, { buffer = file_buf, desc = "StackReader: save and return to preview" })
 
   vim.keymap.set("n", "ZQ", function()
-    create_float(file_buf)
+    restore()
   end, { buffer = file_buf, desc = "StackReader: discard and return to preview" })
 end
 
@@ -103,25 +110,25 @@ end
 local function setup_autocmds(file_buf)
   local group = "StackReaderAutoPreview"
 
-  vim.api.nvim_create_autocmd("BufLeave", {
-    group = group, buffer = file_buf,
+  -- On every window focus change: if main_win still has file_buf ensure the
+  -- float is up; if main_win has been taken over by another buffer, hide it.
+  -- This keeps the float visible while neo-tree (or any sidebar) has focus.
+  vim.api.nvim_create_autocmd("WinEnter", {
+    group = group,
     callback = function()
       local s = state[file_buf]
       if not s then return end
-      if s.float_win and vim.api.nvim_win_is_valid(s.float_win) then
-        vim.api.nvim_win_close(s.float_win, true)
-        s.float_win = nil
-      end
-    end,
-  })
-
-  vim.api.nvim_create_autocmd("BufEnter", {
-    group = group, buffer = file_buf,
-    callback = function()
-      local s = state[file_buf]
-      if not s then return end
-      if vim.api.nvim_get_current_win() == s.main_win then
-        create_float(file_buf)
+      if not vim.api.nvim_win_is_valid(s.main_win) then return end
+      if s.no_float then return end
+      if vim.api.nvim_win_get_buf(s.main_win) == file_buf then
+        if not s.float_win or not vim.api.nvim_win_is_valid(s.float_win) then
+          create_float(file_buf)
+        end
+      else
+        if s.float_win and vim.api.nvim_win_is_valid(s.float_win) then
+          vim.api.nvim_win_close(s.float_win, true)
+          s.float_win = nil
+        end
       end
     end,
   })
@@ -131,8 +138,7 @@ local function setup_autocmds(file_buf)
     callback = function()
       local s = state[file_buf]
       if not s then return end
-      if not s.float_win then return end
-      if not vim.api.nvim_win_is_valid(s.float_win) then return end
+      if not s.float_win or not vim.api.nvim_win_is_valid(s.float_win) then return end
       if not vim.api.nvim_win_is_valid(s.main_win) then return end
       vim.api.nvim_win_set_config(s.float_win, {
         width  = vim.api.nvim_win_get_width(s.main_win),
@@ -205,6 +211,7 @@ function M.setup()
         term_buf  = term_buf,
         float_win = nil,
         main_win  = main_win,
+        no_float  = false,
       }
 
       create_float(file_buf)
