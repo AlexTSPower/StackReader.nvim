@@ -178,21 +178,26 @@ function M.setup()
       local term_buf = vim.api.nvim_create_buf(false, true)
       vim.bo[term_buf].bufhidden = "hide"
 
-      local job_id = vim.fn.termopen(
-        { binary, "--no-chrome", "--watch", filepath },
-        {
-          on_exit = function()
-            vim.schedule(function()
-              local s = state[file_buf]
-              if not s then return end
-              if s.float_win and vim.api.nvim_win_is_valid(s.float_win) then
-                vim.api.nvim_win_close(s.float_win, true)
-              end
-              state[file_buf] = nil
-            end)
-          end,
-        }
-      )
+      -- termopen() acts on the current buffer, so we must call it from within
+      -- term_buf's context, not from file_buf's context.
+      local job_id
+      vim.api.nvim_buf_call(term_buf, function()
+        job_id = vim.fn.termopen(
+          { binary, "--no-chrome", "--watch", filepath },
+          {
+            on_exit = function()
+              vim.schedule(function()
+                local s = state[file_buf]
+                if not s then return end
+                if s.float_win and vim.api.nvim_win_is_valid(s.float_win) then
+                  vim.api.nvim_win_close(s.float_win, true)
+                end
+                state[file_buf] = nil
+              end)
+            end,
+          }
+        )
+      end)
 
       state[file_buf] = {
         filepath  = filepath,
