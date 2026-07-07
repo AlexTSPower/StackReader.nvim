@@ -12,29 +12,29 @@ local function enter_edit(term_buf)
   local s = state[term_buf]
   if not s then return end
 
-  local width  = math.floor(vim.o.columns * 0.9)
-  local height = math.floor(vim.o.lines   * 0.85)
-  local row    = math.floor((vim.o.lines   - height) / 2)
-  local col    = math.floor((vim.o.columns - width)  / 2)
-
-  local float_win = vim.api.nvim_open_win(s.file_buf, true, {
-    relative = "editor",
-    width = width, height = height, row = row, col = col,
-    style = "minimal", border = "rounded",
-  })
+  vim.api.nvim_win_set_buf(s.term_win, s.file_buf)
   vim.cmd("startinsert")
 
-  vim.api.nvim_create_autocmd("WinClosed", {
-    pattern = tostring(float_win),
-    once = true,
-    callback = function()
-      vim.schedule(function()
-        if vim.api.nvim_win_is_valid(s.term_win) then
-          vim.api.nvim_set_current_win(s.term_win)
-        end
-      end)
-    end,
-  })
+  local function save_and_return()
+    vim.cmd("silent! w")
+    vim.api.nvim_win_set_buf(s.term_win, term_buf)
+    vim.api.nvim_set_current_win(s.term_win)
+  end
+
+  local function discard_and_return()
+    vim.api.nvim_win_set_buf(s.term_win, term_buf)
+    vim.api.nvim_set_current_win(s.term_win)
+  end
+
+  -- Esc from insert mode: natural "done editing" — save and return to preview
+  vim.keymap.set("i", "<Esc>", save_and_return,
+    { buffer = s.file_buf, desc = "StackReader: save and return to preview" })
+
+  vim.keymap.set("n", "ZZ", save_and_return,
+    { buffer = s.file_buf, desc = "StackReader: save and return to preview" })
+
+  vim.keymap.set("n", "ZQ", discard_and_return,
+    { buffer = s.file_buf, desc = "StackReader: discard and return to preview" })
 end
 
 function M.setup()
@@ -75,7 +75,7 @@ function M.setup()
 
       state[term_buf] = { filepath = filepath, file_buf = file_buf, term_win = win }
 
-      -- 'i' in normal mode opens the file in a floating editor.
+      -- 'i' in normal mode swaps the window to the raw file for editing.
       -- 'a', '<Insert>', '<CR>' etc. still enter terminal mode for StackReader interaction.
       vim.keymap.set("n", "i", function()
         enter_edit(term_buf)
