@@ -6,6 +6,7 @@ M.config = {
     sidebyside = "<leader>ss",
     browser    = "<leader>sb",
   },
+  autopreview = true,
 }
 
 -- Returns path to the stackreader binary, or nil if not found.
@@ -21,14 +22,15 @@ function M.resolve_binary()
   return nil
 end
 
--- setup() merges user opts into config and registers keymaps.
--- Call from your lazy.nvim config function.
 function M.setup(opts)
   opts = opts or {}
   if opts.keymaps then
     for k, v in pairs(opts.keymaps) do
       M.config.keymaps[k] = v
     end
+  end
+  if opts.autopreview ~= nil then
+    M.config.autopreview = opts.autopreview
   end
 
   local km = M.config.keymaps
@@ -49,6 +51,10 @@ function M.setup(opts)
     vim.keymap.set("n", km.browser, function()
       require("stackreader.browser").toggle()
     end, { desc = "StackReader: browser" })
+  end
+
+  if M.config.autopreview then
+    require("stackreader.autopreview").setup()
   end
 end
 
