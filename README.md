@@ -1,11 +1,13 @@
 # StackReader.nvim
 
-A Neovim plugin for [StackReader](https://github.com/AlexTSPower/StackReader) — a terminal markdown viewer with GitHub-style rendering.
+GitHub-style markdown rendering inside Neovim — pure Lua, no external binaries. Headings, code blocks, lists, block quotes, and inline code render in normal mode; entering insert mode reveals raw markdown for editing.
+
+Powered by Treesitter and Neovim's extmark API, the same technique used by [render-markdown.nvim](https://github.com/MeanderingProgrammer/render-markdown.nvim).
 
 ## Requirements
 
 - Neovim 0.10+
-- `curl` and `tar` (used by the auto-installer)
+- Treesitter parsers: `markdown` and `markdown_inline`
 
 ## Installation
 
@@ -14,50 +16,70 @@ A Neovim plugin for [StackReader](https://github.com/AlexTSPower/StackReader) �
 ```lua
 {
   "AlexTSPower/StackReader.nvim",
-  build = ":StackReaderInstall",
+  ft = { "markdown", "mdx" },
   config = function()
-    require("stackreader").setup({
-      keymaps = {
-        preview    = "<leader>sp",
-        sidebyside = "<leader>ss",
-        browser    = "<leader>sb",
-      },
-    })
+    require("stackreader").setup()
   end,
 }
 ```
 
-Run `:checkhealth stackreader` after install to confirm the binary is ready.
+Install the required Treesitter parsers:
+
+```vim
+:TSInstall markdown markdown_inline
+```
+
+Run `:checkhealth stackreader` to confirm everything is ready.
 
 ## Usage
 
+Rendering activates automatically when you open a markdown file. The display switches between rendered and raw based on your mode:
+
+| Mode | Display |
+|------|---------|
+| Normal / Command | Rendered (headings, code blocks, lists…) |
+| Insert | Raw markdown for editing |
+
 | Keymap | Command | Description |
 |--------|---------|-------------|
-| `<leader>sp` | `:StackReaderPreview` | Toggle rendered preview alongside current buffer |
-| `<leader>ss` | `:StackReaderSideBySide` | Side-by-side: edit on left, live preview on right |
-| `<leader>sb` | `:StackReaderBrowser` | Open markdown browser for current directory |
+| `<leader>sp` | `:StackReaderToggle` | Toggle rendering on/off for current buffer |
 
-Set any keymap to `false` to disable it:
+## Configuration
 
 ```lua
 require("stackreader").setup({
-  keymaps = { browser = false }
+  enabled = true,
+  render_modes = { "n", "c" },        -- modes that show rendered output
+  anti_conceal = { above = 0, below = 0 },  -- rows around cursor to show raw
+  file_types = { "markdown", "mdx" },
+  keymaps = {
+    toggle = "<leader>sp",            -- false to disable
+  },
+  heading = {
+    icons = { "󰲡 ", "󰲣 ", "󰲥 ", "󰲧 ", "󰲩 ", "󰲫 " },
+    width = "full",                   -- "full" | "block"
+  },
+  code = {
+    style = "full",                   -- "full" | "language" | "none"
+    border = "thin",                  -- "thin" | "thick" | "none"
+  },
+  bullet = {
+    icons = { "●", "○", "◆", "◇" },
+  },
 })
 ```
 
-## Manual Binary Install
+## What gets rendered
 
-If `:StackReaderInstall` fails:
-
-```sh
-brew install AlexTSPower/tap/stackreader
-```
-
-Or download from [GitHub Releases](https://github.com/AlexTSPower/StackReader/releases) and place the `stackreader` binary anywhere on your `$PATH`.
-
-## How it works
-
-StackReader.nvim opens the [`stackreader`](https://github.com/AlexTSPower/StackReader) binary inside Neovim terminal buffers. In preview and side-by-side modes, `--watch` is passed so the binary uses `fsnotify` to detect file saves and re-render automatically — no polling, no BufWritePost hooks needed.
+| Element | Appearance |
+|---------|-----------|
+| ATX headings h1–h6 | Nerd Font icon + coloured line background |
+| Fenced code blocks | Language label, border lines, background highlight |
+| Bullet lists | `●` / `○` / `◆` / `◇` icons by depth |
+| Checkboxes `[ ]` `[x]` `[-]` | Nerd Font tick icons |
+| Block quotes | `▋` border |
+| Thematic breaks `---` | Full-width `─` line |
+| Inline code `` `…` `` | Background highlight, backticks concealed |
 
 ## License
 

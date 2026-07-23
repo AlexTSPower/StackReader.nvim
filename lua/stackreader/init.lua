@@ -1,61 +1,50 @@
 local M = {}
 
-M.config = {
+local defaults = {
+  enabled = true,
+  render_modes = { 'n', 'c' },
+  anti_conceal = { above = 0, below = 0 },
+  file_types = { 'markdown', 'mdx' },
   keymaps = {
-    preview    = "<leader>sp",
-    sidebyside = "<leader>ss",
-    browser    = "<leader>sb",
+    toggle = '<leader>sp',
   },
-  autopreview = true,
+  heading = {
+    icons = { '󰲡 ', '󰲣 ', '󰲥 ', '󰲧 ', '󰲩 ', '󰲫 ' },
+    width = 'full',
+  },
+  code = {
+    style = 'full',
+    border = 'thin',
+  },
+  bullet = {
+    icons = { '●', '○', '◆', '◇' },
+  },
 }
 
--- Returns path to the stackreader binary, or nil if not found.
-function M.resolve_binary()
-  local installed = vim.fn.expand("~/.local/share/nvim/stackreader/bin/stackreader")
-  if vim.fn.executable(installed) == 1 then
-    return installed
-  end
-  local system_path = vim.fn.exepath("stackreader")
-  if system_path ~= "" then
-    return system_path
-  end
-  return nil
-end
+M.config = vim.deepcopy(defaults)
 
 function M.setup(opts)
-  opts = opts or {}
-  if opts.keymaps then
-    for k, v in pairs(opts.keymaps) do
-      M.config.keymaps[k] = v
-    end
-  end
-  if opts.autopreview ~= nil then
-    M.config.autopreview = opts.autopreview
-  end
+  M.config = vim.tbl_deep_extend('force', defaults, opts or {})
+
+  require('stackreader.highlights').setup()
 
   local km = M.config.keymaps
-
-  if km.preview ~= false then
-    vim.keymap.set("n", km.preview, function()
-      require("stackreader.preview").toggle()
-    end, { desc = "StackReader: toggle preview" })
+  if km.toggle ~= false then
+    vim.keymap.set('n', km.toggle, M.toggle, { desc = 'StackReader: toggle rendering' })
   end
 
-  if km.sidebyside ~= false then
-    vim.keymap.set("n", km.sidebyside, function()
-      require("stackreader.sidebyside").toggle()
-    end, { desc = "StackReader: side-by-side" })
+  if M.config.enabled then
+    require('stackreader.manager').setup(M.config)
   end
+end
 
-  if km.browser ~= false then
-    vim.keymap.set("n", km.browser, function()
-      require("stackreader.browser").toggle()
-    end, { desc = "StackReader: browser" })
-  end
-
-  if M.config.autopreview then
-    require("stackreader.autopreview").setup()
-  end
+function M.toggle()
+  local buf = vim.api.nvim_get_current_buf()
+  local active = require('stackreader.manager').toggle(buf, M.config)
+  vim.notify(
+    active and 'StackReader: rendering enabled' or 'StackReader: rendering disabled',
+    vim.log.levels.INFO
+  )
 end
 
 return M
